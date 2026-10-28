@@ -54,6 +54,9 @@ void connectWithWifiManager() {
     return;
   }
 
+  WiFi.setAutoReconnect(true);
+  setWifiConnected(WiFi.status() == WL_CONNECTED);
+
   const String ssid = WiFi.SSID();
   const String ipAddress = WiFi.localIP().toString();
   const String gatewayAddress = WiFi.gatewayIP().toString();
@@ -62,6 +65,18 @@ void connectWithWifiManager() {
   appLogf("IP address: %s", ipAddress.c_str());
   appLogf("Gateway: %s", gatewayAddress.c_str());
   appLogf("Subnet mask: %s", subnetMask.c_str());
+
+  // Task tetap hidup agar koneksi Wi-Fi dipulihkan jika router sempat terputus.
+  for (;;) {
+    if (WiFi.status() != WL_CONNECTED) {
+      setWifiConnected(false);
+      appLog("WiFi terputus; mencoba menyambung kembali.");
+      WiFi.reconnect();
+      vTaskDelay(pdMS_TO_TICKS(5000));
+    } else {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
 }
 
 void wifiTask(void* parameter) {
@@ -81,9 +96,6 @@ void wifiTask(void* parameter) {
   WiFi.mode(WIFI_STA);
 
   connectWithWifiManager();
-
-  // WiFiManager sudah keluar dari scope; callback jaringan tetap mengatur event group.
-  vTaskDelete(nullptr);
 }
 
 }  // namespace

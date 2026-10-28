@@ -1,0 +1,15 @@
+ .github/workflows/build-release.yml |  73 [32m+++++++[m
+ .gitignore                          |   4 [32m+[m
+ .vscode/tasks.json                  |  10 [31m-[m
+ README.md                           | 163 [32m+++++++++[m[31m-------[m
+ include/app_config.h                |  40 [32m+++[m[31m-[m
+ include/build_version.h             |   4 [32m+[m
+ include/ota_secrets.h.example       |   5 [32m+[m
+ partitions.csv                      |   8 [32m+[m
+ platformio.ini                      |  13 [32m+[m[31m-[m
+ server/dummy_publisher.py           |  83 [32m++++++++[m
+ server/ota_server.py                | 220 [32m+++++++++++++++++++++[m
+ server/requirements.txt             |   3 [32m+[m
+ src/tasks/ota/ota_task.cpp          | 374 [32m++++++++++++++++++++++++++++++[m[31m------[m
+ src/tasks/wifi/wifi_task.cpp        |  18 [32m+[m[31m-[m
+ 14 files changed, 863 insertions(+), 155 deletions(-)
