@@ -34,6 +34,8 @@ PlatformIO dipatok ke platform pioarduino `55.03.311` dan framework Arduino ESP3
 
 Nama host `MQTT_BROKER_HOST` harus tercantum pada SAN sertifikat broker. `server.crt` lokal yang diperiksa mencakup IP `192.168.211.251` dan `localhost`; ESP32 memakai IP LAN, sedangkan proses Python di PC dapat memakai `localhost`.
 
+Setiap ESP kini membuat ID dan hostname unik dari MAC Wi-Fi, misalnya `esp32-ota-aabbccddeeff`. Ini mencegah broker memutus koneksi saat beberapa board memakai firmware yang sama. Status dan dummy data juga memakai topic per perangkat. OTA tetap memakai topic broadcast `gateway/ota/update`, dengan field `target` untuk memilih `all` atau satu ID perangkat.
+
 Jika repo GitHub private, set environment variable `GITHUB_TOKEN` di komputer server menggunakan token dengan akses baca ke repo/releases. Jangan simpan token ini di kode atau workflow. Server Python memakai `OTA_MQTT_HOST`, `OTA_MQTT_PORT`, `OTA_MQTT_USERNAME`, `OTA_MQTT_PASSWORD`, dan `OTA_MQTT_TLS`. Jika CA broker tidak dipercaya Windows, set `OTA_MQTT_CA_CERT` ke path file CA PEM.
 
 Contoh menggunakan HTTP untuk firmware dan TLS untuk MQTT. Batasi akses port ke perangkat/jaringan tepercaya. Kredensial dan CA MQTT yang dimasukkan saat build ikut tertanam di firmware; gunakan akun broker khusus dengan izin topik terbatas, bukan akun admin. MD5 mendeteksi kerusakan saat transfer, bukan tanda tangan keamanan firmware.
@@ -66,6 +68,7 @@ $env:OTA_SERVER_IP = "192.168.211.251"
 $env:OTA_MQTT_HOST = "localhost"
 $env:OTA_MQTT_PORT = "8883"
 $env:OTA_MQTT_TLS = "1"
+$env:OTA_TARGET_DEVICE_ID = "all"
 # Jika CA lokal tidak dipercaya Windows, isi path ke file CA PEM:
 $env:OTA_MQTT_CA_CERT = "C:\Program Files\Mosquitto\certs\ca.crt"
 # Jika broker memakai autentikasi, set juga username dan password:
@@ -80,7 +83,7 @@ Server memeriksa GitHub setiap lima menit. Server mengunduh rilis kompatibel, me
 
 ## Uji MQTT dengan angka dummy
 
-Setelah ESP32 tersambung ke broker TLS, firmware mengirim angka bulat acak `0`–`100` ke topic `gateway/dummy/random` setiap 5 detik. Di MQTT Explorer subscribe ke topic tersebut (atau `#`). Host broker firmware diatur lewat `MQTT_BROKER_HOST`, port `8883`, username/password, dan CA PEM.
+Setelah ESP32 tersambung ke broker TLS, firmware mengirim angka bulat acak `0`–`100` tiap 5 detik ke topic `gateway/dummy/<ID_PERANGKAT>/random`. Status perangkat tersedia pada `gateway/status/<ID_PERANGKAT>`. Di MQTT Explorer subscribe ke `gateway/dummy/#` dan `gateway/status/#`. ID perangkat tercetak di Serial Monitor saat boot dan muncul di payload status.
 
 Publisher Python di bawah ini menguji broker dari PC tanpa ESP32, dan mengirim ke topic `demo/random` setiap 5 detik.
 
@@ -100,6 +103,8 @@ server\.venv\Scripts\python.exe server\dummy_publisher.py
 
 Untuk koneksi pada MQTT Explorer yang berjalan di komputer yang sama, `localhost` mengarah ke broker lokal. Di MQTT Explorer subscribe ke `demo/random` (atau `#`) untuk melihat nilainya. Tekan `Ctrl+C` untuk berhenti. Untuk ESP32 di jaringan, gunakan alamat LAN/nama DNS broker yang cocok dengan sertifikat, bukan `localhost`.
 
+Untuk membatasi OTA ke satu ESP, atur `OTA_TARGET_DEVICE_ID` ke ID yang tampil pada Serial Monitor atau topic status sebelum menjalankan server. Nilai default `all` memperbarui semua ESP. Firmware lama sebelum dukungan target ini mengabaikan field `target`, jadi rilis migrasi pertama harus memakai `all`; setelah semua ESP diperbarui, rilis berikutnya bisa ditargetkan per perangkat.
+
 ## Upload awal ESP32
 
 Install PlatformIO IDE di VS Code. Build lokal memakai environment `doit_devkit_v1`:
@@ -115,9 +120,9 @@ pio run -e doit_devkit_v1 -t upload --upload-port COM4
 pio device monitor --port COM4
 ```
 
-Setelah boot, isi portal `ESP32-Setup` bila diminta. Serial Monitor 115200 menampilkan status Wi-Fi dan broker. Pastikan `OTA_SERVER_IP` di firmware/server sama, `MQTT_BROKER_HOST` cocok dengan nama di sertifikat TLS, dan CA PEM, port, username, serta password sesuai broker.
+Setelah boot, isi portal `ESP32-Setup` bila diminta. Serial Monitor 115200 menampilkan status Wi-Fi, ID perangkat, dan broker. Pastikan `OTA_SERVER_IP` di firmware/server sama, `MQTT_BROKER_HOST` cocok dengan nama di sertifikat TLS, dan CA PEM, port, username, serta password sesuai broker.
 
-Sesudah upload USB awal dan tersedia Release dengan manifest yang cocok, server akan mengumumkan firmware lewat MQTT. Pantau `gateway/status` atau Serial Monitor.
+Sesudah upload USB awal dan tersedia Release dengan manifest yang cocok, server akan mengumumkan firmware lewat MQTT. Pantau `gateway/status/#` atau Serial Monitor.
 
 ## Catatan operasional
 

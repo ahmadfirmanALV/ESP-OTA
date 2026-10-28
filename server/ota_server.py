@@ -20,10 +20,10 @@ MQTT_BROKER = os.environ.get("OTA_MQTT_HOST", "localhost").strip()
 MQTT_PORT = int(os.environ.get("OTA_MQTT_PORT", "8883"))
 MQTT_USERNAME = os.environ.get("OTA_MQTT_USERNAME", "")
 MQTT_PASSWORD = os.environ.get("OTA_MQTT_PASSWORD", "")
+OTA_TARGET_DEVICE_ID = os.environ.get("OTA_TARGET_DEVICE_ID", "all").strip().lower() or "all"
 MQTT_TLS = os.environ.get("OTA_MQTT_TLS", "1").strip().lower() in {"1", "true", "yes", "on"}
 MQTT_CA_CERT = os.environ.get("OTA_MQTT_CA_CERT", "").strip() or None
 MQTT_TOPIC_OTA = "gateway/ota/update"
-MQTT_TOPIC_STATUS = "gateway/status"
 SERVER_PORT = int(os.environ.get("OTA_SERVER_PORT", "5000"))
 CHECK_INTERVAL_SECONDS = int(os.environ.get("OTA_CHECK_INTERVAL_SECONDS", "300"))
 FIRMWARE_DIR = Path(__file__).resolve().parent / "firmware_files"
@@ -159,6 +159,7 @@ def download_firmware(tag_name, asset):
         "version": tag_name,
         "url": local_url,
         "md5": checksum.hexdigest(),
+        "target": OTA_TARGET_DEVICE_ID,
     }
     return filename, payload
 
@@ -174,7 +175,11 @@ def process_latest_release():
     # Publish retained berulang agar broker restart atau ESP offline dapat pulih.
     if last_update_payload is not None:
         publish_update(json.dumps(last_update_payload, separators=(",", ":")))
-        logger.info("Pengumuman OTA rilis %s dikirim lewat MQTT.", tag_name)
+        logger.info(
+            "Pengumuman OTA rilis %s dikirim lewat MQTT; target=%s.",
+            tag_name,
+            OTA_TARGET_DEVICE_ID,
+        )
 
 
 def github_polling_worker():

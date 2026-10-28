@@ -16,6 +16,7 @@
 
 #include "app_config.h"
 #include "app_events.h"
+#include "app_identity.h"
 #include "app_log.h"
 #include "build_version.h"
 
@@ -46,7 +47,9 @@ void publishStatus(const char* status) {
   }
 
   StaticJsonDocument<256> document;
-  document["device"] = AppConfig::OTA_DEVICE_ID;
+  const String deviceId = AppIdentity::deviceId();
+  const String statusTopic = AppIdentity::statusTopic();
+  document["device"] = deviceId;
   document["version"] = OTA_FIRMWARE_VERSION;
   document["status"] = status;
 
@@ -54,7 +57,7 @@ void publishStatus(const char* status) {
   const size_t length = serializeJson(document, payload, sizeof(payload));
   if (length > 0) {
     mqttClient.publish(
-        AppConfig::OTA_STATUS_TOPIC,
+        statusTopic.c_str(),
         reinterpret_cast<const uint8_t*>(payload),
         static_cast<unsigned int>(length),
         false);
@@ -241,9 +244,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   const char* version = document["version"];
   const char* url = document["url"];
   const char* md5 = document["md5"];
+  const char* target = document["target"];
   if (version == nullptr || url == nullptr || md5 == nullptr ||
       strlen(version) == 0 || strlen(version) > 48 || !isValidMd5(md5)) {
     appLog("MQTT: payload OTA tidak memiliki versi, URL, atau MD5 yang valid.");
+    return;
+  }
+
+  const String deviceId = AppIdentity::deviceId();
+  if (target != nullptr && strcmp(target, "all") != 0 &&
+      deviceId != target) {
+    appLogf("OTA %s diabaikan; target %s, perangkat ini %s.",
+            version, target, deviceId.c_str());
     return;
   }
 
@@ -271,7 +283,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 bool connectMqtt() {
-  String clientId = AppConfig::OTA_DEVICE_ID;
+  const String clientId = AppIdentity::deviceId();
   const bool hasCredentials = AppConfig::MQTT_USERNAME[0] != '\0';
   bool connected = false;
 
@@ -361,8 +373,9 @@ void otaTask(void* parameter) {
     if (now - lastDummyPublishMs >= AppConfig::MQTT_DUMMY_INTERVAL_MS) {
       lastDummyPublishMs = now;
       const String value = String(random(0, 101));
-      if (mqttClient.publish(AppConfig::MQTT_DUMMY_TOPIC, value.c_str())) {
-        appLogf("MQTT dummy: %s = %s", AppConfig::MQTT_DUMMY_TOPIC, value.c_str());
+      const String topic = AppIdentity::dummyTopic();
+      if (mqttClient.publish(topic.c_str(), value.c_str())) {
+        appLogf("MQTT dummy: %s = %s", topic.c_str(), value.c_str());
       } else {
         appLog("MQTT dummy: publish gagal.");
       }

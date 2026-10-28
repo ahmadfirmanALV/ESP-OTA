@@ -8,6 +8,7 @@
 
 #include "app_config.h"
 #include "app_events.h"
+#include "app_identity.h"
 #include "app_log.h"
 
 namespace {
@@ -92,8 +93,10 @@ void wifiTask(void* parameter) {
     }
   });
 
-  WiFi.setHostname(AppConfig::OTA_HOSTNAME);
   WiFi.mode(WIFI_STA);
+  const String hostname = AppIdentity::deviceId();
+  WiFi.setHostname(hostname.c_str());
+  appLogf("Identitas perangkat: %s", hostname.c_str());
 
   connectWithWifiManager();
 }

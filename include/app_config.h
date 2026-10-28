@@ -36,9 +36,9 @@ constexpr uint8_t WIFI_GATEWAY[] = {192, 168, 2, 2};
 constexpr uint8_t WIFI_SUBNET[] = {255, 255, 255, 0};
 constexpr uint8_t WIFI_DNS[] = {192, 168, 2, 2};
 
-// Beri hostname berbeda pada setiap ESP agar OTA/mDNS tidak saling bentrok.
-// Password dikosongkan ("") agar sistem OTA tidak memerlukan password.
-constexpr char OTA_HOSTNAME[] = "esp32-ota-01";
+// Identitas unik diturunkan dari MAC Wi-Fi agar firmware yang sama aman dipakai
+// pada beberapa ESP32.
+constexpr char OTA_DEVICE_ID_PREFIX[] = "esp32-ota-";
 
 // Komputer lokal yang menyajikan file firmware lewat HTTP; terpisah dari broker.
 constexpr uint8_t OTA_SERVER_IP[] = {192, 168, 211, 251};
@@ -49,10 +49,9 @@ constexpr uint16_t OTA_HTTP_PORT = 5000;
 constexpr char MQTT_USERNAME[] = OTA_MQTT_USERNAME;
 constexpr char MQTT_PASSWORD[] = OTA_MQTT_PASSWORD;
 constexpr char MQTT_CA_CERT[] = OTA_MQTT_CA_CERT_PEM;
-constexpr char OTA_DEVICE_ID[] = "esp32-ota-01";
 constexpr char OTA_UPDATE_TOPIC[] = "gateway/ota/update";
-constexpr char OTA_STATUS_TOPIC[] = "gateway/status";
-constexpr char MQTT_DUMMY_TOPIC[] = "gateway/dummy/random";
+constexpr char OTA_STATUS_TOPIC_PREFIX[] = "gateway/status";
+constexpr char MQTT_DUMMY_TOPIC_PREFIX[] = "gateway/dummy";
 constexpr uint32_t MQTT_DUMMY_INTERVAL_MS = 5000;
 constexpr uint32_t OTA_BOOT_VALIDATION_TIMEOUT_MS = 180000;
 
