@@ -34,7 +34,7 @@ PlatformIO dipatok ke platform pioarduino `55.03.311` dan framework Arduino ESP3
 
 Nama host `MQTT_BROKER_HOST` harus tercantum pada SAN sertifikat broker. `server.crt` lokal yang diperiksa mencakup IP `192.168.211.251` dan `localhost`; ESP32 memakai IP LAN, sedangkan proses Python di PC dapat memakai `localhost`.
 
-Setiap ESP membuat ID unik dari MAC Wi-Fi, misalnya `esp32-ota-aabbccddeeff`. Status dan dummy data memakai topic per perangkat. Perintah OTA untuk satu ESP dikirim hanya ke `gateway/ota/update/<ID_PERANGKAT>`; broadcast yang disengaja memakai `gateway/ota/update/all`. Firmware baru memeriksa topic dan field `target` sekaligus. Firmware lama yang hanya subscribe ke topic umum `gateway/ota/update` tidak menerima perintah bertarget.
+Setiap ESP membuat ID unik dari MAC Wi-Fi, misalnya `esp32-ota-aabbccddeeff`. Status dan dummy data memakai topic per perangkat. Perintah OTA untuk satu ESP dikirim hanya ke `gateway/ota/update/<ID_PERANGKAT>`; broadcast yang disengaja memakai `gateway/ota/update/all`. Firmware baru memastikan topic cocok dengan perangkat; jika payload menyertakan field `target`, nilainya juga harus cocok. Topic broadcast wajib menyertakan `target: all`. Firmware lama yang hanya subscribe ke topic umum `gateway/ota/update` tidak menerima perintah bertarget.
 
 Jika repo GitHub private, set environment variable `GITHUB_TOKEN` di komputer server menggunakan token dengan akses baca ke repo/releases. Jangan simpan token ini di kode atau workflow. Server Python memakai `OTA_MQTT_HOST`, `OTA_MQTT_PORT`, `OTA_MQTT_USERNAME`, `OTA_MQTT_PASSWORD`, dan `OTA_MQTT_TLS`. Jika CA broker tidak dipercaya Windows, set `OTA_MQTT_CA_CERT` ke path file CA PEM.
 

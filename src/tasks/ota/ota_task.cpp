@@ -253,17 +253,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   const char* md5 = document["md5"];
   const char* target = document["target"];
   if (version == nullptr || url == nullptr || md5 == nullptr ||
-      target == nullptr || strlen(version) == 0 || strlen(version) > 48 ||
+      strlen(version) == 0 || strlen(version) > 48 ||
       !isValidMd5(md5)) {
     appLog("MQTT: payload OTA tidak memiliki versi, URL, atau MD5 yang valid.");
     return;
   }
 
   const String deviceId = AppIdentity::deviceId();
-  if ((addressedToDevice && deviceId != target) ||
-      (addressedToAll && strcmp(target, "all") != 0)) {
+  if ((addressedToDevice && target != nullptr && deviceId != target) ||
+      (addressedToAll && (target == nullptr || strcmp(target, "all") != 0))) {
+    const char* targetLabel = target == nullptr ? "(tidak ada)" : target;
     appLogf("OTA %s diabaikan; target %s, perangkat ini %s.",
-            version, target, deviceId.c_str());
+            version, targetLabel, deviceId.c_str());
     return;
   }
 
