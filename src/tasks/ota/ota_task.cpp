@@ -85,8 +85,15 @@ void rejectRelease(const char* version, const char* reason) {
   publishStatus("update_failed");
 }
 
+String getStoredString(const char* key) {
+  if (!otaPreferences.isKey(key)) {
+    return String();
+  }
+  return otaPreferences.getString(key);
+}
+
 void verifyRunningImage() {
-  const String pendingVersion = otaPreferences.getString("pending", "");
+  const String pendingVersion = getStoredString("pending");
   if (!pendingVersion.isEmpty() && pendingVersion != OTA_FIRMWARE_VERSION) {
     // Versi lama kembali berjalan setelah bootloader membatalkan firmware baru.
     otaPreferences.putString("rejected", pendingVersion);
@@ -253,7 +260,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  const String rejectedVersion = otaPreferences.getString("rejected", "");
+  const String rejectedVersion = getStoredString("rejected");
   if (rejectedVersion == version) {
     appLogf("OTA: rilis %s pernah gagal dan diabaikan.", version);
     publishStatus("release_rejected");
