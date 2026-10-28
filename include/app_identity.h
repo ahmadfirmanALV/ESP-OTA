@@ -22,4 +22,12 @@ inline String dummyTopic() {
   return String(AppConfig::MQTT_DUMMY_TOPIC_PREFIX) + "/" + deviceId() + "/random";
 }
 
+inline String otaTopic() {
+  return String(AppConfig::OTA_UPDATE_TOPIC) + "/" + deviceId();
+}
+
+inline String otaBroadcastTopic() {
+  return String(AppConfig::OTA_UPDATE_TOPIC) + "/all";
+}
+
 }  // namespace AppIdentity

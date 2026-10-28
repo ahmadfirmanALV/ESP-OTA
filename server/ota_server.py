@@ -20,10 +20,13 @@ MQTT_BROKER = os.environ.get("OTA_MQTT_HOST", "localhost").strip()
 MQTT_PORT = int(os.environ.get("OTA_MQTT_PORT", "8883"))
 MQTT_USERNAME = os.environ.get("OTA_MQTT_USERNAME", "")
 MQTT_PASSWORD = os.environ.get("OTA_MQTT_PASSWORD", "")
-OTA_TARGET_DEVICE_ID = os.environ.get("OTA_TARGET_DEVICE_ID", "all").strip().lower() or "all"
+OTA_TARGET_DEVICE_ID = os.environ.get(
+    "OTA_TARGET_DEVICE_ID", "esp32-ota-14335c524234"
+).strip().lower()
 MQTT_TLS = os.environ.get("OTA_MQTT_TLS", "1").strip().lower() in {"1", "true", "yes", "on"}
 MQTT_CA_CERT = os.environ.get("OTA_MQTT_CA_CERT", "").strip() or None
 MQTT_TOPIC_OTA = "gateway/ota/update"
+MQTT_TOPIC_OTA_LEGACY = MQTT_TOPIC_OTA
 SERVER_PORT = int(os.environ.get("OTA_SERVER_PORT", "5000"))
 CHECK_INTERVAL_SECONDS = int(os.environ.get("OTA_CHECK_INTERVAL_SECONDS", "300"))
 FIRMWARE_DIR = Path(__file__).resolve().parent / "firmware_files"
@@ -61,15 +64,43 @@ def make_mqtt_client():
     return client
 
 
+def ota_topic_for_target(target):
+    if target == "all":
+        return f"{MQTT_TOPIC_OTA}/all"
+    if re.fullmatch(r"esp32-ota-[0-9a-f]{12}", target) is None:
+        raise ValueError(
+            "OTA_TARGET_DEVICE_ID harus 'all' atau ID seperti esp32-ota-aabbccddeeff."
+        )
+    return f"{MQTT_TOPIC_OTA}/{target}"
+
+
+def clear_legacy_retained_update():
+    """Remove the old global retained command so legacy firmware cannot replay it."""
+    client = make_mqtt_client()
+    client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+    client.loop_start()
+    try:
+        result = client.publish(MQTT_TOPIC_OTA_LEGACY, payload=None, qos=1, retain=True)
+        result.wait_for_publish(timeout=15)
+        if result.rc != mqtt.MQTT_ERR_SUCCESS or not result.is_published():
+            raise RuntimeError("Gagal menghapus retained OTA dari topic lama.")
+        logger.info("Retained OTA topic lama %s sudah dihapus.", MQTT_TOPIC_OTA_LEGACY)
+    finally:
+        client.disconnect()
+        client.loop_stop()
+
+
 def publish_update(payload):
     client = make_mqtt_client()
     client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
     client.loop_start()
     try:
-        result = client.publish(MQTT_TOPIC_OTA, payload, qos=1, retain=True)
+        topic = ota_topic_for_target(OTA_TARGET_DEVICE_ID)
+        result = client.publish(topic, payload, qos=1, retain=False)
         result.wait_for_publish(timeout=15)
         if result.rc != mqtt.MQTT_ERR_SUCCESS or not result.is_published():
             raise RuntimeError(f"MQTT publish gagal, rc={result.rc}")
+        logger.info("Perintah OTA dikirim ke topic %s (tanpa retained).", topic)
     finally:
         client.disconnect()
         client.loop_stop()
@@ -172,7 +203,7 @@ def process_latest_release():
         last_processed_tag = tag_name
         logger.info("Firmware rilis %s disimpan sebagai %s.", tag_name, filename)
 
-    # Publish retained berulang agar broker restart atau ESP offline dapat pulih.
+    # Kirim ulang secara periodik tanpa retained; ESP offline menerima saat sudah online.
     if last_update_payload is not None:
         publish_update(json.dumps(last_update_payload, separators=(",", ":")))
         logger.info(
@@ -193,7 +224,12 @@ def github_polling_worker():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "github_repo": GITHUB_REPO}
+    return {
+        "status": "ok",
+        "github_repo": GITHUB_REPO,
+        "target_device_id": OTA_TARGET_DEVICE_ID,
+        "mqtt_topic": ota_topic_for_target(OTA_TARGET_DEVICE_ID),
+    }
 
 
 @app.get("/download/<path:filename>")
@@ -210,14 +246,25 @@ def serve_firmware(filename):
 def main():
     if not GITHUB_REPO or "/" not in GITHUB_REPO:
         raise SystemExit("Set OTA_GITHUB_REPO=owner/repository.")
+    if not OTA_TARGET_DEVICE_ID:
+        raise SystemExit(
+            "Set OTA_TARGET_DEVICE_ID to one ESP device ID; use 'all' only for an intentional broadcast."
+        )
+    try:
+        ota_topic_for_target(OTA_TARGET_DEVICE_ID)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     if CHECK_INTERVAL_SECONDS < 30:
         raise SystemExit("OTA_CHECK_INTERVAL_SECONDS harus minimal 30 detik.")
 
     FIRMWARE_DIR.mkdir(parents=True, exist_ok=True)
+    clear_legacy_retained_update()
     threading.Thread(target=github_polling_worker, daemon=True).start()
     logger.info(
-        "OTA server aktif: repo=%s, broker=%s:%s, HTTP=%s:%s",
+        "OTA server aktif: repo=%s, target=%s, topic=%s, broker=%s:%s, HTTP=%s:%s",
         GITHUB_REPO,
+        OTA_TARGET_DEVICE_ID,
+        ota_topic_for_target(OTA_TARGET_DEVICE_ID),
         MQTT_BROKER,
         MQTT_PORT,
         SERVER_IP,

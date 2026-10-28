@@ -66,13 +66,14 @@ def main():
                 time.sleep(min(remaining, 0.25))
                 continue
 
-            value = random.randint(MIN_VALUE, MAX_VALUE)
-            info = client.publish(TOPIC, str(value), qos=0, retain=False)
+            value = random.randint(MIN_VALUE * 100, MAX_VALUE * 100) / 100.0
+            payload = f"{value:.2f}"
+            info = client.publish(TOPIC, payload, qos=0, retain=False)
             if info.rc != mqtt.MQTT_ERR_SUCCESS:
                 logger.warning("Publish gagal dengan kode %s.", info.rc)
             else:
                 info.wait_for_publish(timeout=10)
-                logger.info("%s <- %d", TOPIC, value)
+                logger.info("%s <- %s", TOPIC, payload)
             next_publish += INTERVAL_SECONDS
     finally:
         client.disconnect()

@@ -232,7 +232,14 @@ bool executeOta(const char* version, const char* url, const char* expectedMd5) {
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  (void)topic;
+  const String deviceTopic = AppIdentity::otaTopic();
+  const String broadcastTopic = AppIdentity::otaBroadcastTopic();
+  const bool addressedToDevice = topic != nullptr && deviceTopic == topic;
+  const bool addressedToAll = topic != nullptr && broadcastTopic == topic;
+  if (!addressedToDevice && !addressedToAll) {
+    appLog("MQTT: perintah OTA dari topic yang tidak dikenal diabaikan.");
+    return;
+  }
 
   StaticJsonDocument<512> document;
   const DeserializationError parseError = deserializeJson(document, payload, length);
@@ -246,14 +253,15 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   const char* md5 = document["md5"];
   const char* target = document["target"];
   if (version == nullptr || url == nullptr || md5 == nullptr ||
-      strlen(version) == 0 || strlen(version) > 48 || !isValidMd5(md5)) {
+      target == nullptr || strlen(version) == 0 || strlen(version) > 48 ||
+      !isValidMd5(md5)) {
     appLog("MQTT: payload OTA tidak memiliki versi, URL, atau MD5 yang valid.");
     return;
   }
 
   const String deviceId = AppIdentity::deviceId();
-  if (target != nullptr && strcmp(target, "all") != 0 &&
-      deviceId != target) {
+  if ((addressedToDevice && deviceId != target) ||
+      (addressedToAll && strcmp(target, "all") != 0)) {
     appLogf("OTA %s diabaikan; target %s, perangkat ini %s.",
             version, target, deviceId.c_str());
     return;
@@ -302,8 +310,11 @@ bool connectMqtt() {
   appLog("MQTT: terhubung ke broker.");
   lastDummyPublishMs = millis();
   verifyRunningImage();
-  if (!mqttClient.subscribe(AppConfig::OTA_UPDATE_TOPIC, 1)) {
-    appLog("MQTT: gagal subscribe ke topik OTA.");
+  const String deviceOtaTopic = AppIdentity::otaTopic();
+  const String broadcastOtaTopic = AppIdentity::otaBroadcastTopic();
+  if (!mqttClient.subscribe(deviceOtaTopic.c_str(), 1) ||
+      !mqttClient.subscribe(broadcastOtaTopic.c_str(), 1)) {
+    appLog("MQTT: gagal subscribe ke topic OTA perangkat atau broadcast.");
     mqttClient.disconnect();
     return false;
   }
@@ -372,7 +383,8 @@ void otaTask(void* parameter) {
     const uint32_t now = millis();
     if (now - lastDummyPublishMs >= AppConfig::MQTT_DUMMY_INTERVAL_MS) {
       lastDummyPublishMs = now;
-      const String value = String(random(0, 101));
+      const float randomValue = static_cast<float>(random(0, 10001)) / 100.0f;
+      const String value(randomValue, 2);
       const String topic = AppIdentity::dummyTopic();
       if (mqttClient.publish(topic.c_str(), value.c_str())) {
         appLogf("MQTT dummy: %s = %s", topic.c_str(), value.c_str());

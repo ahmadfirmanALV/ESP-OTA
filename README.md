@@ -17,7 +17,7 @@ ESP32 <- MQTT broker <- ota_server.py
 - `src/` dan `include/`: firmware Arduino + FreeRTOS, WiFiManager, dan klien OTA MQTT.
 - `partitions.csv`: dua slot aplikasi 1.5 MB, `otadata`, SPIFFS, dan coredump untuk flash 4 MB.
 - `.github/workflows/build-release.yml`: build pada tag `vMAJOR.MINOR.PATCH`; rilis berisi `firmware.bin` dan `ota_manifest.json`.
-- `server/ota_server.py`: mengambil rilis terbaru yang kompatibel, menyajikan firmware lewat HTTP lokal, dan menerbitkan perintah MQTT retained.
+- `server/ota_server.py`: mengambil rilis terbaru yang kompatibel, menyajikan firmware lewat HTTP lokal, dan menerbitkan perintah MQTT ke topic target.
 - `server/dummy_publisher.py`: mengirim angka acak ke topic MQTT untuk uji koneksi, default setiap 5 detik.
 - `include/ota_secrets.h.example`: template kredensial broker untuk build lokal. File rahasia sebenarnya diabaikan Git.
 
@@ -34,7 +34,7 @@ PlatformIO dipatok ke platform pioarduino `55.03.311` dan framework Arduino ESP3
 
 Nama host `MQTT_BROKER_HOST` harus tercantum pada SAN sertifikat broker. `server.crt` lokal yang diperiksa mencakup IP `192.168.211.251` dan `localhost`; ESP32 memakai IP LAN, sedangkan proses Python di PC dapat memakai `localhost`.
 
-Setiap ESP kini membuat ID dan hostname unik dari MAC Wi-Fi, misalnya `esp32-ota-aabbccddeeff`. Ini mencegah broker memutus koneksi saat beberapa board memakai firmware yang sama. Status dan dummy data juga memakai topic per perangkat. OTA tetap memakai topic broadcast `gateway/ota/update`, dengan field `target` untuk memilih `all` atau satu ID perangkat.
+Setiap ESP membuat ID unik dari MAC Wi-Fi, misalnya `esp32-ota-aabbccddeeff`. Status dan dummy data memakai topic per perangkat. Perintah OTA untuk satu ESP dikirim hanya ke `gateway/ota/update/<ID_PERANGKAT>`; broadcast yang disengaja memakai `gateway/ota/update/all`. Firmware baru memeriksa topic dan field `target` sekaligus. Firmware lama yang hanya subscribe ke topic umum `gateway/ota/update` tidak menerima perintah bertarget.
 
 Jika repo GitHub private, set environment variable `GITHUB_TOKEN` di komputer server menggunakan token dengan akses baca ke repo/releases. Jangan simpan token ini di kode atau workflow. Server Python memakai `OTA_MQTT_HOST`, `OTA_MQTT_PORT`, `OTA_MQTT_USERNAME`, `OTA_MQTT_PASSWORD`, dan `OTA_MQTT_TLS`. Jika CA broker tidak dipercaya Windows, set `OTA_MQTT_CA_CERT` ke path file CA PEM.
 
@@ -68,7 +68,7 @@ $env:OTA_SERVER_IP = "192.168.211.251"
 $env:OTA_MQTT_HOST = "localhost"
 $env:OTA_MQTT_PORT = "8883"
 $env:OTA_MQTT_TLS = "1"
-$env:OTA_TARGET_DEVICE_ID = "all"
+$env:OTA_TARGET_DEVICE_ID = "esp32-ota-14335c524234" # Target awal: ESP IP .107
 # Jika CA lokal tidak dipercaya Windows, isi path ke file CA PEM:
 $env:OTA_MQTT_CA_CERT = "C:\Program Files\Mosquitto\certs\ca.crt"
 # Jika broker memakai autentikasi, set juga username dan password:
@@ -79,15 +79,15 @@ server\.venv\Scripts\python.exe server\ota_server.py
 
 Ganti nilai contoh dengan konfigurasi sebenarnya. `OTA_SERVER_IP` harus IP LAN komputer ini. Untuk broker lokal pada komputer yang sama, `OTA_MQTT_HOST=localhost` cocok bila sertifikatnya mencakup `localhost`; untuk ESP32, host harus nama LAN/DNS yang tercakup di sertifikat. Jika CA broker tidak dipercaya Windows, set `$env:OTA_MQTT_CA_CERT` ke file CA PEM. Jika repo private, set `$env:GITHUB_TOKEN`.
 
-Server memeriksa GitHub setiap lima menit. Server mengunduh rilis kompatibel, memeriksa ukuran serta image firmware, lalu menerbitkan pesan retained. Pesan retained memungkinkan ESP32 yang offline mengambil rilis saat tersambung kembali. Perintah unduh tetap menunjuk ke komputer lokal pada `OTA_SERVER_IP`.
+Server memeriksa GitHub setiap lima menit. Server mengunduh rilis kompatibel, memeriksa ukuran serta image firmware, lalu mengirim perintah tanpa retained ke topic target. Server mengirim ulang rilis terbaru tiap interval, jadi ESP yang offline menerima perintah setelah tersambung kembali. Perintah unduh tetap menunjuk ke komputer lokal pada `OTA_SERVER_IP`.
 
 ## Uji MQTT dengan angka dummy
 
-Setelah ESP32 tersambung ke broker TLS, firmware mengirim angka bulat acak `0`–`100` tiap 5 detik ke topic `gateway/dummy/<ID_PERANGKAT>/random`. Status perangkat tersedia pada `gateway/status/<ID_PERANGKAT>`. Di MQTT Explorer subscribe ke `gateway/dummy/#` dan `gateway/status/#`. ID perangkat tercetak di Serial Monitor saat boot dan muncul di payload status.
+Setelah ESP32 tersambung ke broker TLS, firmware mengirim angka acak desimal dengan dua angka di belakang titik, dari `0.00` sampai `100.00`, tiap 5 detik ke topic `gateway/dummy/<ID_PERANGKAT>/random`. Contoh payload: `42.37`. Status perangkat tersedia pada `gateway/status/<ID_PERANGKAT>`. Di MQTT Explorer subscribe ke `gateway/dummy/#` dan `gateway/status/#`. ID perangkat tercetak di Serial Monitor saat boot dan muncul di payload status.
 
 Publisher Python di bawah ini menguji broker dari PC tanpa ESP32, dan mengirim ke topic `demo/random` setiap 5 detik.
 
-Publisher ini mengirim angka bulat acak `0`–`100` ke `demo/random` setiap 5 detik. Default-nya memakai TLS di `localhost:8883`. Jalankan di PowerShell setelah dependency terpasang:
+Publisher ini mengirim angka desimal acak dengan dua angka di belakang titik ke `demo/random` setiap 5 detik. Default-nya memakai TLS di `localhost:8883`. Jalankan di PowerShell setelah dependency terpasang:
 
 ```powershell
 $env:OTA_MQTT_HOST = "localhost"
@@ -103,7 +103,9 @@ server\.venv\Scripts\python.exe server\dummy_publisher.py
 
 Untuk koneksi pada MQTT Explorer yang berjalan di komputer yang sama, `localhost` mengarah ke broker lokal. Di MQTT Explorer subscribe ke `demo/random` (atau `#`) untuk melihat nilainya. Tekan `Ctrl+C` untuk berhenti. Untuk ESP32 di jaringan, gunakan alamat LAN/nama DNS broker yang cocok dengan sertifikat, bukan `localhost`.
 
-Untuk membatasi OTA ke satu ESP, atur `OTA_TARGET_DEVICE_ID` ke ID yang tampil pada Serial Monitor atau topic status sebelum menjalankan server. Nilai default `all` memperbarui semua ESP. Firmware lama sebelum dukungan target ini mengabaikan field `target`, jadi rilis migrasi pertama harus memakai `all`; setelah semua ESP diperbarui, rilis berikutnya bisa ditargetkan per perangkat.
+Target awal server adalah `esp32-ota-14335c524234` (ESP yang topic dummy-nya terlihat dari IP `.107`). Ubah `OTA_TARGET_DEVICE_ID` ke ID lain jika target berganti. Server menampilkan target dan topic pada log startup serta endpoint `/health`. Atur ke ID yang tampil pada Serial Monitor atau topic status agar server mengirim hanya ke topic ESP tersebut. Gunakan `all` hanya untuk broadcast ke firmware baru yang subscribe ke topic `/all`. Pengumuman tidak disimpan sebagai retained; server mengirim ulang rilis terbaru sesuai interval pemeriksaan ketika ESP kembali online. Saat mulai, server menghapus retained command dari topic umum lama `gateway/ota/update`. Hentikan proses server versi lama agar tidak menerbitkan broadcast lama lagi.
+
+Firmware sebelum dukungan topic khusus hanya subscribe ke `gateway/ota/update`. Upload firmware migrasi baru lewat USB ke ESP yang akan menerima OTA bertarget sebelum memilihnya di server. ESP lama tidak akan menerima rilis dari topic khusus, sehingga tidak ikut mengambil firmware yang ditujukan untuk perangkat lain.
 
 ## Upload awal ESP32
 
