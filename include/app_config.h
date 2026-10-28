@@ -56,7 +56,7 @@ constexpr char MQTT_DUMMY_TOPIC[] = "gateway/dummy/random";
 constexpr uint32_t MQTT_DUMMY_INTERVAL_MS = 5000;
 constexpr uint32_t OTA_BOOT_VALIDATION_TIMEOUT_MS = 180000;
 
-constexpr bool BLINK_MODE = true;
+constexpr bool BLINK_MODE = false;
 constexpr uint32_t BLINK_INTERVAL_MS = 500;
 
 // Ubah ke true hanya untuk satu kali upload jika ingin menghapus kredensial WiFi
