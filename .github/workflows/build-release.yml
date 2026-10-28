@@ -28,6 +28,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
           OTA_MQTT_USERNAME: ${{ secrets.OTA_MQTT_USERNAME }}
           OTA_MQTT_PASSWORD: ${{ secrets.OTA_MQTT_PASSWORD }}
+          OTA_MQTT_CA_CERT_PEM: ${{ secrets.OTA_MQTT_CA_CERT_PEM }}
         run: |
           python - <<'PY'
           import json
@@ -55,6 +56,8 @@ jobs:
               + json.dumps(os.environ.get("OTA_MQTT_USERNAME", ""))
               + "\n#define OTA_MQTT_PASSWORD "
               + json.dumps(os.environ.get("OTA_MQTT_PASSWORD", ""))
+              + "\n#define OTA_MQTT_CA_CERT_PEM "
+              + json.dumps(os.environ.get("OTA_MQTT_CA_CERT_PEM", ""))
               + "\n",
               encoding="utf-8",
           )

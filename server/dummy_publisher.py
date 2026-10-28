@@ -7,11 +7,11 @@ import time
 import paho.mqtt.client as mqtt
 
 
-BROKER_HOST = os.environ.get("OTA_MQTT_HOST", "127.0.0.1").strip()
-BROKER_PORT = int(os.environ.get("OTA_MQTT_PORT", "1883"))
+BROKER_HOST = os.environ.get("OTA_MQTT_HOST", "localhost").strip()
+BROKER_PORT = int(os.environ.get("OTA_MQTT_PORT", "8883"))
 USERNAME = os.environ.get("OTA_MQTT_USERNAME", "")
 PASSWORD = os.environ.get("OTA_MQTT_PASSWORD", "")
-USE_TLS = os.environ.get("OTA_MQTT_TLS", "0").strip().lower() in {"1", "true", "yes", "on"}
+USE_TLS = os.environ.get("OTA_MQTT_TLS", "1").strip().lower() in {"1", "true", "yes", "on"}
 CA_CERT = os.environ.get("OTA_MQTT_CA_CERT", "").strip()
 TOPIC = os.environ.get("OTA_DUMMY_TOPIC", "demo/random").strip()
 INTERVAL_SECONDS = float(os.environ.get("OTA_DUMMY_INTERVAL_SECONDS", "5"))
@@ -43,6 +43,7 @@ def main():
         client.username_pw_set(USERNAME, PASSWORD)
     if USE_TLS:
         client.tls_set(ca_certs=CA_CERT or None)
+        client.tls_insecure_set(False)
 
     try:
         client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)

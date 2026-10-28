@@ -14,6 +14,10 @@
 #define OTA_MQTT_PASSWORD ""
 #endif
 
+#ifndef OTA_MQTT_CA_CERT_PEM
+#define OTA_MQTT_CA_CERT_PEM ""
+#endif
+
 namespace AppConfig {
 
 constexpr uint8_t LED_PIN = 2; // LED onboard D2 / GPIO2 pada DOIT ESP32 DEVKIT V1
@@ -40,10 +44,11 @@ constexpr char OTA_HOSTNAME[] = "esp32-ota-01";
 constexpr uint8_t OTA_SERVER_IP[] = {192, 168, 211, 251};
 // Broker dapat berupa Mosquitto lokal atau hostname layanan cloud.
 constexpr char MQTT_BROKER_HOST[] = "192.168.211.251";
-constexpr uint16_t MQTT_PORT = 1883;
+constexpr uint16_t MQTT_PORT = 8883;
 constexpr uint16_t OTA_HTTP_PORT = 5000;
 constexpr char MQTT_USERNAME[] = OTA_MQTT_USERNAME;
 constexpr char MQTT_PASSWORD[] = OTA_MQTT_PASSWORD;
+constexpr char MQTT_CA_CERT[] = OTA_MQTT_CA_CERT_PEM;
 constexpr char OTA_DEVICE_ID[] = "esp32-ota-01";
 constexpr char OTA_UPDATE_TOPIC[] = "gateway/ota/update";
 constexpr char OTA_STATUS_TOPIC[] = "gateway/status";

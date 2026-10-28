@@ -8,6 +8,7 @@
 #include <string.h>
 #include <Update.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <esp_ota_ops.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>
@@ -20,7 +21,7 @@
 
 namespace {
 
-WiFiClient networkClient;
+WiFiClientSecure networkClient;
 PubSubClient mqttClient(networkClient);
 Preferences otaPreferences;
 uint32_t lastDummyPublishMs = 0;
@@ -304,8 +305,14 @@ void otaTask(void* parameter) {
   if (!firmwareServerConfigured() || AppConfig::MQTT_BROKER_HOST[0] == '\0') {
     appLog("OTA belum aktif: isi OTA_SERVER_IP dan MQTT_BROKER_HOST di app_config.h.");
   }
+  if (AppConfig::MQTT_CA_CERT[0] == '\0') {
+    appLog("MQTT TLS belum siap: isi OTA_MQTT_CA_CERT_PEM dengan CA certificate broker.");
+  } else {
+    networkClient.setCACert(AppConfig::MQTT_CA_CERT);
+  }
   const bool serverConfigured = firmwareServerConfigured() &&
-                                AppConfig::MQTT_BROKER_HOST[0] != '\0';
+                                AppConfig::MQTT_BROKER_HOST[0] != '\0' &&
+                                AppConfig::MQTT_CA_CERT[0] != '\0';
 
   uint32_t lastConnectionAttempt = 0;
   for (;;) {

@@ -16,10 +16,12 @@ from flask import Flask, abort, send_from_directory
 GITHUB_REPO = os.environ.get("OTA_GITHUB_REPO", "").strip()
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "").strip()
 SERVER_IP = os.environ.get("OTA_SERVER_IP", "192.168.211.251").strip()
-MQTT_BROKER = os.environ.get("OTA_MQTT_HOST", "127.0.0.1").strip()
-MQTT_PORT = int(os.environ.get("OTA_MQTT_PORT", "1883"))
+MQTT_BROKER = os.environ.get("OTA_MQTT_HOST", "localhost").strip()
+MQTT_PORT = int(os.environ.get("OTA_MQTT_PORT", "8883"))
 MQTT_USERNAME = os.environ.get("OTA_MQTT_USERNAME", "")
 MQTT_PASSWORD = os.environ.get("OTA_MQTT_PASSWORD", "")
+MQTT_TLS = os.environ.get("OTA_MQTT_TLS", "1").strip().lower() in {"1", "true", "yes", "on"}
+MQTT_CA_CERT = os.environ.get("OTA_MQTT_CA_CERT", "").strip() or None
 MQTT_TOPIC_OTA = "gateway/ota/update"
 MQTT_TOPIC_STATUS = "gateway/status"
 SERVER_PORT = int(os.environ.get("OTA_SERVER_PORT", "5000"))
@@ -53,6 +55,9 @@ def make_mqtt_client():
     )
     if MQTT_USERNAME:
         client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    if MQTT_TLS:
+        client.tls_set(ca_certs=MQTT_CA_CERT)
+        client.tls_insecure_set(False)
     return client
 
 
