@@ -91,6 +91,54 @@ bool isValidMd5(const char* md5) {
   return true;
 }
 
+bool parseReleaseVersion(const char* version, uint32_t components[3]) {
+  if (version == nullptr || version[0] != 'v') {
+    return false;
+  }
+
+  const char* cursor = version + 1;
+  for (size_t componentIndex = 0; componentIndex < 3; ++componentIndex) {
+    if (*cursor < '0' || *cursor > '9') {
+      return false;
+    }
+
+    uint32_t componentValue = 0;
+    while (*cursor >= '0' && *cursor <= '9') {
+      const uint32_t digit = static_cast<uint32_t>(*cursor - '0');
+      if (componentValue > (0xFFFFFFFFU - digit) / 10U) {
+        return false;
+      }
+      componentValue = componentValue * 10U + digit;
+      ++cursor;
+    }
+    components[componentIndex] = componentValue;
+
+    if (componentIndex < 2) {
+      if (*cursor != '.') {
+        return false;
+      }
+      ++cursor;
+    }
+  }
+
+  if (*cursor != '\0') {
+    return false;
+  }
+  return true;
+}
+
+int compareReleaseVersions(const uint32_t left[3], const uint32_t right[3]) {
+  for (size_t i = 0; i < 3; ++i) {
+    if (left[i] < right[i]) {
+      return -1;
+    }
+    if (left[i] > right[i]) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 void rejectRelease(const char* version, const char* reason) {
   otaPreferences.putString("rejected", version);
   otaPreferences.remove("pending");
@@ -285,10 +333,31 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  if (strcmp(version, OTA_FIRMWARE_VERSION) == 0) {
-    appLogf("OTA: firmware sudah memakai %s.", OTA_FIRMWARE_VERSION);
-    publishStatus("online");
+  uint32_t advertisedVersion[3];
+  if (!parseReleaseVersion(version, advertisedVersion)) {
+    appLogf("OTA: versi broker '%s' bukan format vMAJOR.MINOR.PATCH.", version);
     return;
+  }
+
+  uint32_t runningVersion[3];
+  if (parseReleaseVersion(OTA_FIRMWARE_VERSION, runningVersion)) {
+    const int versionOrder = compareReleaseVersions(runningVersion, advertisedVersion);
+    if (versionOrder == 0) {
+      appLogf("OTA: firmware sudah memakai versi broker %s.", version);
+      publishStatus("online");
+      return;
+    }
+    if (versionOrder > 0) {
+      appLogf("OTA: versi ESP %s lebih baru dari broker %s; downgrade dilewati.",
+              OTA_FIRMWARE_VERSION, version);
+      publishStatus("broker_release_older");
+      return;
+    }
+    appLogf("OTA: versi ESP %s lebih lama dari broker %s; mulai update.",
+            OTA_FIRMWARE_VERSION, version);
+  } else {
+    appLogf("OTA: firmware lokal %s menerima rilis broker %s untuk migrasi.",
+            OTA_FIRMWARE_VERSION, version);
   }
 
   const String rejectedVersion = getStoredString("rejected");
