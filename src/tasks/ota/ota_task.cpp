@@ -472,7 +472,8 @@ void otaTask(void* parameter) {
     const uint32_t now = millis();
     if (now - lastDummyPublishMs >= AppConfig::MQTT_DUMMY_INTERVAL_MS) {
       lastDummyPublishMs = now;
-      const String value = String(random(0, 101));
+      const float randomValue = static_cast<float>(random(0, 10001)) / 100.0f;
+      const String value(randomValue, 2);
       const String topic = AppIdentity::dummyTopic();
       if (mqttClient.publish(topic.c_str(), value.c_str())) {
         appLogf("MQTT dummy: %s = %s", topic.c_str(), value.c_str());
