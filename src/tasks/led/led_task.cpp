@@ -5,17 +5,27 @@
 #include <freertos/task.h>
 
 #include "app_config.h"
+#include "app_log.h"
+#include "app_watchdog.h"
 
 namespace {
 
 void ledTask(void* parameter) {
   (void)parameter;
 
+  if (!appWatchdogSubscribeCurrentTask("led_task")) {
+    appLog("Watchdog: task LED gagal didaftarkan; ESP32 akan restart.");
+    ESP.restart();
+    vTaskDelete(nullptr);
+    return;
+  }
+
   pinMode(AppConfig::LED_PIN, OUTPUT);
   digitalWrite(AppConfig::LED_PIN, HIGH);
 
   if (!AppConfig::BLINK_MODE) {
     for (;;) {
+      appWatchdogFeed();
       vTaskDelay(pdMS_TO_TICKS(1000));
     }
   }
@@ -25,6 +35,7 @@ void ledTask(void* parameter) {
   const TickType_t interval = pdMS_TO_TICKS(AppConfig::BLINK_INTERVAL_MS);
 
   for (;;) {
+    appWatchdogFeed();
     vTaskDelayUntil(&lastWakeTime, interval);
     ledState = !ledState;
     digitalWrite(AppConfig::LED_PIN, ledState ? HIGH : LOW);

@@ -23,6 +23,8 @@ ESP32 <- MQTT broker <- ota_server.py
 
 PlatformIO dipatok ke platform pioarduino `55.03.311` dan framework Arduino ESP32 3.3.11. SDK platform ini mengaktifkan rollback bootloader. Jangan hapus pin platform tanpa memeriksa ulang dukungan rollback dan hasil build.
 
+Task Watchdog dikonfigurasi satu kali di `setup()` dengan timeout 60 detik dan memantau task idle pada kedua core. Task utama, LED, Wi-Fi setelah proses portal awal, dan OTA didaftarkan sekali lalu memberi makan watchdog dari loop masing-masing. WiFiManager tidak didaftarkan selama portal awal karena batas waktunya 180 detik. Timeout TWDT memicu panic/reset; putus Wi-Fi biasa tidak memicu reset selama task masih berjalan dan mencoba reconnect.
+
 ## Konfigurasi alamat dan kredensial
 
 1. `OTA_SERVER_IP` di `include/app_config.h` adalah IP LAN komputer yang menyajikan firmware di port HTTP 5000. Berdasarkan konfigurasi Wi-Fi terakhir, nilainya sekarang `192.168.211.251`; samakan dengan environment variable `OTA_SERVER_IP` di server Python.

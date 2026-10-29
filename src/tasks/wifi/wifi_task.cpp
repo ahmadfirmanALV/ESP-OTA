@@ -10,10 +10,11 @@
 #include "app_events.h"
 #include "app_identity.h"
 #include "app_log.h"
+#include "app_watchdog.h"
 
 namespace {
 
-void connectWithWifiManager() {
+bool connectWithWifiManager() {
   WiFiManager wifiManager;
   wifiManager.setConfigPortalTimeout(AppConfig::WIFI_PORTAL_TIMEOUT_SECONDS);
 
@@ -52,7 +53,7 @@ void connectWithWifiManager() {
     appLog("Koneksi WiFi gagal atau portal timeout; ESP32 akan restart.");
     vTaskDelay(pdMS_TO_TICKS(1000));
     ESP.restart();
-    return;
+    return false;
   }
 
   WiFi.setAutoReconnect(true);
@@ -67,17 +68,7 @@ void connectWithWifiManager() {
   appLogf("Gateway: %s", gatewayAddress.c_str());
   appLogf("Subnet mask: %s", subnetMask.c_str());
 
-  // Task tetap hidup agar koneksi Wi-Fi dipulihkan jika router sempat terputus.
-  for (;;) {
-    if (WiFi.status() != WL_CONNECTED) {
-      setWifiConnected(false);
-      appLog("WiFi terputus; mencoba menyambung kembali.");
-      WiFi.reconnect();
-      vTaskDelay(pdMS_TO_TICKS(5000));
-    } else {
-      vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-  }
+  return true;
 }
 
 void wifiTask(void* parameter) {
@@ -98,7 +89,31 @@ void wifiTask(void* parameter) {
   WiFi.setHostname(hostname.c_str());
   appLogf("Identitas perangkat: %s", hostname.c_str());
 
-  connectWithWifiManager();
+  // WiFiManager may wait for the user portal for up to 180 s, so enroll this
+  // task only after the initial connection/portal flow has completed.
+  if (!connectWithWifiManager()) {
+    vTaskDelete(nullptr);
+    return;
+  }
+  if (!appWatchdogSubscribeCurrentTask("wifi_task")) {
+    appLog("Watchdog: task WiFi gagal didaftarkan; ESP32 akan restart.");
+    ESP.restart();
+    vTaskDelete(nullptr);
+    return;
+  }
+
+  // Task tetap hidup agar koneksi Wi-Fi dipulihkan jika router sempat terputus.
+  for (;;) {
+    appWatchdogFeed();
+    if (WiFi.status() != WL_CONNECTED) {
+      setWifiConnected(false);
+      appLog("WiFi terputus; mencoba menyambung kembali.");
+      WiFi.reconnect();
+      vTaskDelay(pdMS_TO_TICKS(5000));
+    } else {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
 }
 
 }  // namespace

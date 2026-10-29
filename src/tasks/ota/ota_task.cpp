@@ -18,6 +18,7 @@
 #include "app_events.h"
 #include "app_identity.h"
 #include "app_log.h"
+#include "app_watchdog.h"
 #include "build_version.h"
 
 namespace {
@@ -325,6 +326,13 @@ bool connectMqtt() {
 
 void otaTask(void* parameter) {
   (void)parameter;
+  if (!appWatchdogSubscribeCurrentTask("ota_task")) {
+    appLog("Watchdog: task OTA gagal didaftarkan; ESP32 akan restart.");
+    ESP.restart();
+    vTaskDelete(nullptr);
+    return;
+  }
+
   otaPreferences.begin("ota-state", false);
   inspectBootValidationState();
   mqttClient.setServer(AppConfig::MQTT_BROKER_HOST, AppConfig::MQTT_PORT);
@@ -347,6 +355,7 @@ void otaTask(void* parameter) {
 
   uint32_t lastConnectionAttempt = 0;
   for (;;) {
+    appWatchdogFeed();
     rollbackIfValidationTimesOut();
     xEventGroupWaitBits(
         gAppEvents,

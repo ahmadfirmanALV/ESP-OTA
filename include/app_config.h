@@ -54,6 +54,8 @@ constexpr char OTA_STATUS_TOPIC_PREFIX[] = "gateway/status";
 constexpr char MQTT_DUMMY_TOPIC_PREFIX[] = "gateway/dummy";
 constexpr uint32_t MQTT_DUMMY_INTERVAL_MS = 5000;
 constexpr uint32_t OTA_BOOT_VALIDATION_TIMEOUT_MS = 180000;
+constexpr uint32_t TASK_WATCHDOG_TIMEOUT_MS = 60000;
+constexpr uint32_t TASK_WATCHDOG_IDLE_CORE_MASK = 0x03;
 
 constexpr bool BLINK_MODE = false;
 constexpr uint32_t BLINK_INTERVAL_MS = 500;
