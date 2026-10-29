@@ -22,6 +22,11 @@ inline String dummyTopic() {
   return String(AppConfig::MQTT_DUMMY_TOPIC_PREFIX) + "/" + deviceId() + "/random";
 }
 
+inline String latestVersionTopic() {
+  return String(AppConfig::MQTT_DUMMY_TOPIC_PREFIX) + "/" + deviceId() +
+         "/latest_version";
+}
+
 inline String otaTopic() {
   return String(AppConfig::OTA_UPDATE_TOPIC) + "/" + deviceId();
 }

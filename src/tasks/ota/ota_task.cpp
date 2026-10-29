@@ -65,6 +65,15 @@ void publishStatus(const char* status) {
   }
 }
 
+void publishLatestVersion() {
+  const String versionTopic = AppIdentity::latestVersionTopic();
+  if (mqttClient.publish(versionTopic.c_str(), OTA_FIRMWARE_VERSION, true)) {
+    appLogf("MQTT versi: %s = %s", versionTopic.c_str(), OTA_FIRMWARE_VERSION);
+  } else {
+    appLog("MQTT: gagal menerbitkan topic latest_version.");
+  }
+}
+
 bool isValidMd5(const char* md5) {
   if (md5 == nullptr || strlen(md5) != 32) {
     return false;
@@ -320,6 +329,7 @@ bool connectMqtt() {
     mqttClient.disconnect();
     return false;
   }
+  publishLatestVersion();
   publishStatus("online");
   return true;
 }

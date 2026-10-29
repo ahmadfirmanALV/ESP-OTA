@@ -85,7 +85,7 @@ Server memeriksa GitHub setiap lima menit. Server mengunduh rilis kompatibel, me
 
 ## Uji MQTT dengan angka dummy
 
-Setelah ESP32 tersambung ke broker TLS, firmware mengirim angka integer acak dari `0` sampai `100` tiap 5 detik ke topic `gateway/dummy/<ID_PERANGKAT>/random`. Contoh payload: `42`. Status perangkat tersedia pada `gateway/status/<ID_PERANGKAT>`. Di MQTT Explorer subscribe ke `gateway/dummy/#` dan `gateway/status/#`. ID perangkat tercetak di Serial Monitor saat boot dan muncul di payload status.
+Setelah ESP32 tersambung ke broker TLS, firmware mengirim angka integer acak dari `0` sampai `100` tiap 5 detik ke topic `gateway/dummy/<ID_PERANGKAT>/random`. Contoh payload: `42`. Versi firmware yang sedang berjalan diterbitkan sebagai retained string ke topic saudara `gateway/dummy/<ID_PERANGKAT>/latest_version`, misalnya `v1.0.13`. Status perangkat tersedia pada `gateway/status/<ID_PERANGKAT>`. Di MQTT Explorer subscribe ke `gateway/dummy/#` dan `gateway/status/#`. ID perangkat tercetak di Serial Monitor saat boot dan muncul di payload status.
 
 Publisher Python di bawah ini menguji broker dari PC tanpa ESP32, dan mengirim ke topic `demo/random` setiap 5 detik.
 
